@@ -1,6 +1,6 @@
 import React, { Component, lazy, Suspense } from "react";
-import ReactDOM from "react-dom";
-import Cell from "./components/Cell/cell";
+import { createRoot } from "react-dom/client";
+
 import "./styles/index.css";
 
 // Lazy load components for better performance
@@ -16,213 +16,148 @@ const LoadingFallback = () => (
 );
 
 
-// Memoized Square component to prevent unnecessary renders
-class Square extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      id: props.squares.id,
-      value: props.squares.value,
-      prefilled: props.squares.prefilled,
-    };
-    
-    // Bind methods once in constructor
-    this.doChange = this.doChange.bind(this);
-    this.onFocus = this.onFocus.bind(this);
-  }
+// Optimized Square component using React.memo
+const Square = React.memo(function Square({ squares, handleChange, onCellFocus }) {
+  const { id, value, prefilled, incorrect } = squares;
   
-  // Only update if props changed
-  shouldComponentUpdate(nextProps) {
-    const current = this.props.squares;
-    const next = nextProps.squares;
-    
-    return (
-      current.value !== next.value ||
-      current.incorrect !== next.incorrect ||
-      current.prefilled !== next.prefilled
-    );
-  }
+  const doChange = React.useCallback((e) => {
+    handleChange(e.target.value, e.target.id);
+  }, [handleChange]);
 
-  doChange(e) {
-    this.setState({
-      value: e.target.value,
-    });
-    this.props.handleChange(e.target.value, e.target.id);
-  }
-
-  onFocus() {
-    if (this.props.onCellFocus) {
-      this.props.onCellFocus(this.state.id);
+  const onFocusHandler = React.useCallback(() => {
+    if (onCellFocus) {
+      onCellFocus(id);
     }
-  }
+  }, [onCellFocus, id]);
 
-  render() {
-    let className = this.state.prefilled
-      ? "square square-grey"
-      : "square square-white";
-    if (this.props.squares.incorrect) {
-      className = "square square-red";
-    }
+  const className = incorrect
+    ? "square square-red"
+    : prefilled
+    ? "square square-grey"
+    : "square square-white";
 
-    return (
-      <td>
-        <div className={className}>
-          <input
-            inputMode="numeric"
-            size="2"
-            maxLength="1"
-            type="text"
-            autoComplete="off"
-            onChange={this.doChange}
-            onFocus={this.onFocus}
-            value={this.props.squares.value || ""}
-            id={this.state.id}
-            disabled={this.state.prefilled}
-          />
-        </div>
-      </td>
-    );
-  }
-}
-
-// Optimize Neighbors with shouldComponentUpdate
-class Neighbors extends Component {
-  shouldComponentUpdate(nextProps) {
-    const currentSquares = this.props.squares;
-    const nextSquares = nextProps.squares;
-    
-    // Check if any square has changed before re-rendering
-    for (let i = 0; i < currentSquares.length; i++) {
-      if (
-        currentSquares[i].value !== nextSquares[i].value ||
-        currentSquares[i].incorrect !== nextSquares[i].incorrect
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
-  
-  render() {
-    return (
-      <table>
-        <tbody>
-          <tr>
-            <Square
-              squares={this.props.squares[0]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-            <Square
-              squares={this.props.squares[1]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-            <Square
-              squares={this.props.squares[2]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-          </tr>
-          <tr>
-            <Square
-              squares={this.props.squares[3]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-            <Square
-              squares={this.props.squares[4]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-            <Square
-              squares={this.props.squares[5]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-          </tr>
-          <tr>
-            <Square
-              squares={this.props.squares[6]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-            <Square
-              squares={this.props.squares[7]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-            <Square
-              squares={this.props.squares[8]}
-              handleChange={this.props.onChange}
-              onCellFocus={this.props.onCellFocus}
-            />
-          </tr>
-        </tbody>
-      </table>
-    );
-  }
-}
-
-// Optimize Column component
-class Column extends Component {
-  shouldComponentUpdate(nextProps) {
-    // More efficient comparison without JSON.stringify
-    const currentSquares = this.props.squares;
-    const nextSquares = nextProps.squares;
-    
-    for (let i = 0; i < currentSquares.length; i++) {
-      if (
-        currentSquares[i].value !== nextSquares[i].value ||
-        currentSquares[i].incorrect !== nextSquares[i].incorrect
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
-  
-  render() {
-    return (
-      <div className="column">
-        <Neighbors
-          squares={this.props.squares.slice(0, 9)}
-          onChange={this.props.handleChange}
-          onCellFocus={this.props.onCellFocus}
-        />
-        <Neighbors
-          squares={this.props.squares.slice(9, 18)}
-          onChange={this.props.handleChange}
-          onCellFocus={this.props.onCellFocus}
-        />
-        <Neighbors
-          squares={this.props.squares.slice(18, 27)}
-          onChange={this.props.handleChange}
-          onCellFocus={this.props.onCellFocus}
+  return (
+    <td>
+      <div className={className}>
+        <input
+          inputMode="numeric"
+          size="2"
+          maxLength="1"
+          type="text"
+          autoComplete="off"
+          onChange={doChange}
+          onFocus={onFocusHandler}
+          value={value || ""}
+          id={id}
+          disabled={prefilled}
         />
       </div>
-    );
+    </td>
+  );
+}, (prevProps, nextProps) => {
+  const prev = prevProps.squares;
+  const next = nextProps.squares;
+  return (
+    prev.value === next.value &&
+    prev.incorrect === next.incorrect &&
+    prev.prefilled === next.prefilled
+  );
+});
+
+// Optimized Neighbors component using React.memo
+const Neighbors = React.memo(function Neighbors({ squares, onChange: handleChange, onCellFocus }) {
+  return (
+    <table>
+      <tbody>
+        {[0, 3, 6].map(rowStart => (
+          <tr key={rowStart}>
+            {[0, 1, 2].map(colOffset => {
+              const index = rowStart + colOffset;
+              return (
+                <Square
+                  key={index}
+                  squares={squares[index]}
+                  handleChange={handleChange}
+                  onCellFocus={onCellFocus}
+                />
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}, (prevProps, nextProps) => {
+  const prevSquares = prevProps.squares;
+  const nextSquares = nextProps.squares;
+  
+  // Fast reference equality check first
+  if (prevSquares === nextSquares) return true;
+  
+  // Deep comparison for value and incorrect properties
+  for (let i = 0; i < prevSquares.length; i++) {
+    if (
+      prevSquares[i].value !== nextSquares[i].value ||
+      prevSquares[i].incorrect !== nextSquares[i].incorrect
+    ) {
+      return false;
+    }
+  }
+  return true;
+});
+
+// Optimized Column component using React.memo and useMemo
+const Column = React.memo(function Column({ squares, handleChange, onCellFocus }) {
+  // Memoize the sliced squares arrays to prevent unnecessary re-renders
+  const neighborSquares = React.useMemo(() => [
+    squares.slice(0, 9),
+    squares.slice(9, 18),
+    squares.slice(18, 27)
+  ], [squares]);
+
+  return (
+    <div className="column">
+      {neighborSquares.map((squareGroup, index) => (
+        <Neighbors
+          key={index}
+          squares={squareGroup}
+          onChange={handleChange}
+          onCellFocus={onCellFocus}
+        />
+      ))}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  const prevSquares = prevProps.squares;
+  const nextSquares = nextProps.squares;
+  
+  // Fast reference equality check first
+  if (prevSquares === nextSquares) return true;
+  
+  // Deep comparison for value and incorrect properties
+  for (let i = 0; i < prevSquares.length; i++) {
+    if (
+      prevSquares[i].value !== nextSquares[i].value ||
+      prevSquares[i].incorrect !== nextSquares[i].incorrect
+    ) {
+      return false;
+    }
+  }
+  return true;
+});
+
+// Cell class for managing individual Sudoku cells
+class Cell {
+  constructor(id, value, prefilled) {
+    this.id = id;
+    this.value = value;
+    this.prefilled = prefilled;
+    this.incorrect = false;
   }
 }
 
 // Pre-generated board templates to avoid expensive computation on load
-const BOARD_TEMPLATES = {
-  easy: [
-    /* Simple pre-filled board template with ~30 cells removed */
-    { id: 0, value: 5, prefilled: true, incorrect: false },
-    /* ... more cells ... */
-  ],
-  medium: [
-    /* Medium pre-filled board template with ~40 cells removed */
-    { id: 0, value: 9, prefilled: true, incorrect: false },
-    /* ... more cells ... */
-  ],
-  hard: [
-    /* Hard pre-filled board template with ~50 cells removed */
-    { id: 0, value: 2, prefilled: true, incorrect: false },
-    /* ... more cells ... */
-  ]
-};
+// Removed unused BOARD_TEMPLATES constant
 
 class Board extends Component {
   constructor(props) {
@@ -251,11 +186,15 @@ class Board extends Component {
       selectedCell: null,
       loading: false, // Start with false since we have a fast initial board
       streak: 0, // Track winning streak
-      bestTime: localStorage.getItem('sudoku_best_time') || Infinity
+      bestTime: localStorage.getItem('sudoku_best_time') || Infinity,
+      highlightedCells: new Set() // Track highlighted cells efficiently
     };
-    this.timerInterval = null;
     
-    // Bind methods in constructor
+    // Initialize timers
+    this.timerInterval = null;
+    this.highlightDebounceTimeout = null;
+    
+    // Bind all methods in constructor
     this.handleCellFocus = this.handleCellFocus.bind(this);
     this.handleChange = this.handleChange.bind(this);
     this.handleNumberPadClick = this.handleNumberPadClick.bind(this);
@@ -263,6 +202,12 @@ class Board extends Component {
     this.undo = this.undo.bind(this);
     this.checkSolution = this.checkSolution.bind(this);
     this.solveSolution = this.solveSolution.bind(this);
+    this.startTimer = this.startTimer.bind(this);
+    this.stopTimer = this.stopTimer.bind(this);
+    this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
+    this.createFastInitialBoard = this.createFastInitialBoard.bind(this);
+    this.generateProperBoard = this.generateProperBoard.bind(this);
+    this.formatTime = this.formatTime.bind(this);
   }
 
   // Create a fast initial board to display immediately
@@ -561,50 +506,57 @@ class Board extends Component {
     );
   }
 
+
+
   handleCellFocus(id) {
-    // Only proceed if id is valid
     if (id === undefined || id === null) return;
     
     this.setState({ selectedCell: id });
     
-    // Use more efficient DOM operations with batch updates
-    requestAnimationFrame(() => {
-      try {
-        // Remove all highlights first
-        document.querySelectorAll('.highlight-same').forEach(cell => {
-          cell.classList.remove('highlight-same');
-        });
-        
-        // Then add highlights where needed
-        const current = this.state.history[this.state.stepNumber];
-        if (!current || !current.squares || !current.squares[id]) return;
-        
-        const selectedValue = current.squares[id].value;
-        if (!selectedValue) return;
-        
-        // Batch DOM operations by getting references first
-        const cellsToHighlight = [];
-        for (let i = 0; i < 81; i++) {
-          if (current.squares[i] && current.squares[i].value === selectedValue) {
-            const cell = document.getElementById(i);
-            if (cell && cell.parentNode) {
-              cellsToHighlight.push(cell.parentNode);
+    if (this.highlightDebounceTimeout) {
+      clearTimeout(this.highlightDebounceTimeout);
+    }
+    
+    this.highlightDebounceTimeout = setTimeout(() => {
+      const current = this.state.history[this.state.stepNumber];
+      const selectedCell = current?.squares?.[id];
+      if (!selectedCell?.value) return;
+      
+      const selectedValue = selectedCell.value;
+      const newHighlightedCells = new Set();
+      
+      // Optimize cell highlighting by using array methods
+      current.squares.forEach((square, index) => {
+        if (square.value === selectedValue) {
+          newHighlightedCells.add(index);
+        }
+      });
+      
+      this.setState({ highlightedCells: newHighlightedCells }, () => {
+        requestAnimationFrame(() => {
+          const oldHighlights = document.querySelectorAll('.highlight-same');
+          const newHighlights = new Set();
+          
+          // Batch DOM operations
+          oldHighlights.forEach(cell => {
+            const inputId = parseInt(cell.querySelector('input')?.id);
+            if (!newHighlightedCells.has(inputId)) {
+              cell.classList.remove('highlight-same');
+            } else {
+              newHighlights.add(inputId);
             }
-          }
-        }
-        
-        // Apply highlights in a single animation frame
-        if (cellsToHighlight.length > 0) {
-          requestAnimationFrame(() => {
-            cellsToHighlight.forEach(cell => {
-              cell.classList.add('highlight-same');
-            });
           });
-        }
-      } catch (error) {
-        console.error("Error in handleCellFocus:", error);
-      }
-    });
+          
+          // Only add new highlights that don't already exist
+          newHighlightedCells.forEach(cellId => {
+            if (!newHighlights.has(cellId)) {
+              const cell = document.getElementById(cellId)?.parentNode;
+              cell?.classList.add('highlight-same');
+            }
+          });
+        });
+      });
+    }, 150);
   }
 
   handleNumberPadClick(value) {
@@ -621,21 +573,25 @@ class Board extends Component {
     
     const history = this.state.history.slice(0, this.state.stepNumber + 1);
     const current = history[history.length - 1];
-    const squares = JSON.parse(JSON.stringify(current.squares));
+    // Avoid deep copy if possible, mutate carefully or use shallow copy + update
+    const squares = current.squares.map(cell => ({ ...cell })); // Shallow copy cells
     
-    // Convert to number or null
+    const previousValue = squares[id].value;
     const numValue = Number(value) || null;
     squares[id].value = numValue;
     
-    // Calculate filled squares delta more efficiently
-    const filledSquaresDelta = numValue !== null ? 1 : -1;
+    // Calculate filled squares delta
+    let filledSquaresDelta = 0;
+    if (numValue !== null && previousValue === null) {
+      filledSquaresDelta = 1;
+    } else if (numValue === null && previousValue !== null) {
+      filledSquaresDelta = -1;
+    }
+
     let isIncorrect = false;
-    
     if (numValue !== null) {
-      const backTrackTest = JSON.parse(JSON.stringify(squares));
-      
-      // Check if the move is valid
-      if (!this.validSpace(backTrackTest, id, numValue) || !this.backTracking(backTrackTest)) {
+      // Check only immediate conflicts, not full board solvability
+      if (!this.validSpace(squares, id, numValue)) {
         squares[id].incorrect = true;
         isIncorrect = true;
         
@@ -643,32 +599,33 @@ class Board extends Component {
         this.setState((prevState) => {
           const wrongAttempts = prevState.wrongAttempts + 1;
           if (wrongAttempts >= 3) {
-            // Show lose modal instead of alert
             this.stopTimer();
-            this.setState({ 
+            // Use functional update to avoid race conditions
+            return {
+              wrongAttempts,
               showLoseModal: true,
               isActive: false
-            });
+            };
           }
           return { wrongAttempts };
         });
+      } else {
+        squares[id].incorrect = false; // Mark as correct if valid
       }
     } else {
-      squares[id].incorrect = false;
+      squares[id].incorrect = false; // Clear incorrect flag if cell is cleared
     }
     
     // Make a single state update
-    this.setState({
+    this.setState(prevState => ({
       history: history.concat([{ squares }]),
       stepNumber: history.length,
-      filledSquares: this.state.filledSquares + filledSquaresDelta,
+      filledSquares: prevState.filledSquares + filledSquaresDelta,
       solved: false,
-    });
+    }));
     
-    // Highlight matching numbers after change
-    if (!isIncorrect && numValue !== null) {
-      this.handleCellFocus(id);
-    }
+    // Highlight matching numbers after change or clear highlights if cell cleared
+    this.handleCellFocus(id);
   }
 
   usedInCol(squares, index, target) {
@@ -694,8 +651,7 @@ class Board extends Component {
         index !== i &&
         squares[i] &&
         squares[i].value === target &&
-        target &&
-        index !== i
+        target // Ensure target is not null
       ) {
         return true;
       }
@@ -720,21 +676,34 @@ class Board extends Component {
     // Show loading indicator during solve
     this.setState({ loading: true });
     
-    // Use setTimeout to prevent UI blocking
-    setTimeout(() => {
-      if (this.backTracking(squares) && !this.incorrectBoardCheck(squares)) {
+    // Use requestAnimationFrame to avoid blocking UI
+    requestAnimationFrame(() => {
+      try {
+        const solved = this.backTracking(squares);
+        if (solved) {
+          this.setState({
+            history: history.concat([{ squares }]),
+            stepNumber: history.length,
+            filledSquares: 81,
+            loading: false,
+            solved: true
+          });
+        } else {
+          this.setState({
+            loading: false,
+            showModal: true,
+            modalMessage: "No solution exists for this puzzle."
+          });
+        }
+      } catch (error) {
+        console.error("Error solving puzzle:", error);
         this.setState({
-          history: history.concat([{ squares }]),
-          stepNumber: history.length,
-          filledSquares: 81,
-          solved: true,
-          loading: false
+          loading: false,
+          showModal: true,
+          modalMessage: "An error occurred while solving the puzzle."
         });
-      } else {
-        this.setState({ loading: false });
-        alert("This board cannot be solved. Try a new game.");
       }
-    }, 100);
+    });
   }
 
   usedInRow(squares, index, target) {
@@ -750,33 +719,19 @@ class Board extends Component {
           adjustedIndex !== index &&
           squares[adjustedIndex] &&
           squares[adjustedIndex].value === target &&
-          target
+          target // Ensure target is not null
         ) {
           return true;
         }
       }
       return false;
     } catch (error) {
-      console.error("Error in usedInRow:", error);
-      return false;
+      console.error("Error in usedInRow:", error, "Index:", index, "Target:", target);
+      return false; // Return false on error to avoid blocking game
     }
   }
 
-  usedInCompletedRow(squares, index, target) {
-    let baseIndex = 3 * Math.floor(index / 3) - 27 * Math.floor(index / 27);
-    for (let i = 0; i < 9; i++) {
-      let adjustedIndex = baseIndex + (i % 3) + Math.floor(i / 3) * 27;
-      if (
-        index !== adjustedIndex &&
-        squares[adjustedIndex] &&
-        squares[adjustedIndex].value === target &&
-        target
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
+  // Removed usedInCompletedRow function as it was redundant
 
   initializeEmptylist(squares) {
     for (let i = 0; i < 81; i++) {
@@ -832,30 +787,28 @@ class Board extends Component {
   checkSolution() {
     const current = this.state.history[this.state.stepNumber].squares;
     
-    // First check that all cells are filled
-    for (let i = 0; i < 81; i++) {
-      if (current[i].value === null) {
-        // Use toast notification instead of alert
-        this.showToast("Please fill all cells first!");
-        return false;
-      }
+    // Check if all cells are filled
+    if (current.some(cell => cell.value === null)) {
+      this.showToast("Please fill all cells first!");
+      return false;
     }
     
-    // Check for incorrect values
+    // Check for any cells marked as incorrect during input
     if (this.incorrectBoardCheck(current)) {
       this.showToast("There are incorrect values in your solution. Check the red cells.");
       return false;
     }
     
-    // Show loading during solution check
     this.setState({ loading: true });
     
-    // Use setTimeout to avoid UI blocking
+    // Use setTimeout to avoid UI blocking during validation
     setTimeout(() => {
-      // Check all rows, columns, and squares
       let isValid = true;
-      for (let i = 0; i < 81; i++) {
-        if (!this.validSpace(current, i, current[i].value)) {
+      // Validate rows, columns, and 3x3 squares
+      for (let i = 0; i < 9; i++) {
+        if (!this.isSetValid(this.getRow(current, i)) || 
+            !this.isSetValid(this.getCol(current, i)) || 
+            !this.isSetValid(this.getSquare(current, i))) {
           isValid = false;
           break;
         }
@@ -864,7 +817,6 @@ class Board extends Component {
       this.setState({ loading: false });
       
       if (isValid) {
-        // Update best time if current time is better
         const currentTime = this.state.timer;
         let newBestTime = this.state.bestTime;
         
@@ -873,7 +825,6 @@ class Board extends Component {
           localStorage.setItem('sudoku_best_time', currentTime);
         }
         
-        // Update streak
         const newStreak = this.state.streak + 1;
         
         this.setState({ 
@@ -889,6 +840,44 @@ class Board extends Component {
         return false;
       }
     }, 50);
+  }
+
+  // Helper function to get a row
+  getRow(squares, rowIndex) {
+    const row = [];
+    const start = rowIndex * 9;
+    for (let i = 0; i < 9; i++) {
+      row.push(squares[start + i].value);
+    }
+    return row;
+  }
+
+  // Helper function to get a column
+  getCol(squares, colIndex) {
+    const col = [];
+    for (let i = 0; i < 9; i++) {
+      col.push(squares[colIndex + i * 9].value);
+    }
+    return col;
+  }
+
+  // Helper function to get a 3x3 square
+  getSquare(squares, squareIndex) {
+    const square = [];
+    const rowStart = Math.floor(squareIndex / 3) * 3;
+    const colStart = (squareIndex % 3) * 3;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        square.push(squares[(rowStart + i) * 9 + (colStart + j)].value);
+      }
+    }
+    return square;
+  }
+
+  // Helper function to check if a set (row, col, square) is valid
+  isSetValid(set) {
+    const filteredSet = set.filter(num => num !== null);
+    return new Set(filteredSet).size === filteredSet.length;
   }
   
   // Show toast notification instead of alert
@@ -944,8 +933,9 @@ class Board extends Component {
   }
 
   validSpace(squares, index, random) {
+    // Use usedInRow instead of the removed usedInCompletedRow
     if (
-      this.usedInCompletedRow(squares, index, random) ||
+      this.usedInRow(squares, index, random) ||
       this.usedInCol(squares, index, random) ||
       this.usedInSquare(squares, index, random)
     ) {
@@ -955,12 +945,12 @@ class Board extends Component {
   }
 }
 
-ReactDOM.render(
+const root = createRoot(document.getElementById("root"));
+root.render(
   <React.StrictMode>
     <Suspense fallback={<LoadingFallback />}>
       <Board />
     </Suspense>
-  </React.StrictMode>,
-  document.getElementById("root")
+  </React.StrictMode>
 );
 
